@@ -21,7 +21,13 @@ const storageLength = 5;
 const addr = (_addr) => {
     return bS + _addr + e;
 }
-const eval = (condition) => {
+// NOTE: this helper used to be named `eval`, which shadowed the global `eval`
+// inside this module. That made every call below an implicit call to the
+// locally-defined function (harmless today), but it is a well-known way to hide
+// dynamic code execution in a review and it silently changes semantics if the
+// local definition is ever removed. Renamed to an explicit, intention-revealing
+// name. All call sites have been updated.
+const reportCheck = (condition) => {
     let msg;
     if(condition) {
         valid++;
@@ -64,7 +70,7 @@ const main = async () => {
     console.log(splitter);
     const proxyAdminOwner = await proxyAdmin.owner();
     console.log("Contract:", bS + "ProxyAdmin" + e);
-    console.log(u + "Owner of ProxyAdmin == HordCongress:" + e, eval(proxyAdminOwner === localHordCongressAddress));
+    console.log(u + "Owner of ProxyAdmin == HordCongress:" + e, reportCheck(proxyAdminOwner === localHordCongressAddress));
 
     console.log(splitter);
     console.log("Contract:", bS + "MakerOtcSupportMethods" + e + "\n");
@@ -74,8 +80,8 @@ const main = async () => {
     console.log(
         "Local:", addr(localMakerOtcSupportMethodsAddress), "\n" +
         "Remote:", addr(remoteMakerOtcSupportMethodsAddress), "\n" +
-        "Synced:", eval(localMakerOtcSupportMethodsAddress === remoteMakerOtcSupportMethodsAddress), "\n" +
-        "Is bytecode matching:", eval(await compareBytecodes("MakerOtcSupportMethods", false))
+        "Synced:", reportCheck(localMakerOtcSupportMethodsAddress === remoteMakerOtcSupportMethodsAddress), "\n" +
+        "Is bytecode matching:", reportCheck(await compareBytecodes("MakerOtcSupportMethods", false))
     );
 
     for(const proxy in proxies) {
@@ -86,15 +92,15 @@ const main = async () => {
             );
             const remoteAdmin = await proxyAdmin.getProxyAdmin(proxies[proxy]);
 
-            console.log(u + "Admin Of Proxy === ProxyAdmin:" + e, eval(proxies['OrderbookProxyAdmin'] === remoteAdmin), "\n");
+            console.log(u + "Admin Of Proxy === ProxyAdmin:" + e, reportCheck(proxies['OrderbookProxyAdmin'] === remoteAdmin), "\n");
             const localImplementation = contracts[proxy];
             const remoteImplementation = await proxyAdmin.getProxyImplementation(proxies[proxy]);
             console.log(
                 u + "Proxy Implementation:" + e,  "\n" +
                 "Local:", addr(localImplementation), "\n" +
                 "Remote:", addr(remoteImplementation), "\n" +
-                "Synced:", eval(localImplementation === remoteImplementation) + "\n" +
-                "Is bytecode matching:", eval(await compareBytecodes(proxy, false))
+                "Synced:", reportCheck(localImplementation === remoteImplementation) + "\n" +
+                "Is bytecode matching:", reportCheck(await compareBytecodes(proxy, false))
             );
 
             const proxyInstance = await hre.ethers.getContractAt(proxy, proxies[proxy]);
@@ -104,11 +110,11 @@ const main = async () => {
             if(proxy === 'MatchingMarket') {
                 slot = await web3.eth.getStorageAt(proxyInstance.address, 2);
                 console.log('Slot 0 -', slot);
-                console.log('Is Contract Initialized: ', eval(slot.slice(-1) == '1'));
+                console.log('Is Contract Initialized: ', reportCheck(slot.slice(-1) == '1'));
             } else if(proxy === 'OrderBookConfiguration') {
                 slot = await web3.eth.getStorageAt(proxyInstance.address, 1);
                 console.log('Slot 0 -', slot);
-                console.log('Is Contract Initialized: ', eval(slot.slice(25, 26) == '1'));
+                console.log('Is Contract Initialized: ', reportCheck(slot.slice(25, 26) == '1'));
             }
 
             console.log(u + '\nPrint Storage:' + e);
